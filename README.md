@@ -1,3 +1,5 @@
+you need account at https://just-dice.com
+
 for debian or ubuntu
 
 sudo apt update
