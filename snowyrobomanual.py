@@ -20,7 +20,7 @@ u = input("Enter username: ")
 p = getpass.getpass("Enter password: ")
 
 URL = "https://just-dice.com"
-STATE_FILE = ".bot_state.json"
+STATE_FILE = "bot_state.json"
 
 
 class WebBridge(QObject):
@@ -296,7 +296,7 @@ class BotEngine(QMainWindow):
             self.next_compound = self.state_data.get("next_compound", self.tracked_balance * 1.24)
             self.shadow = 0.0
             
-            self.mighty = math.floor(round(self.tracked_balance / self.tens, 8)) * self.tens
+            self.mighty = ((math.floor(self.tracked_balance / self.tens)) * self.tens)
             self.felix = self.state_data.get("felix", self.mighty)
             self.orgy = self.state_data.get("orgy", self.mighty)
             self.log(f"⚖️ Deviation Corrected: {drift:.8f}")
@@ -307,7 +307,7 @@ class BotEngine(QMainWindow):
             self.shadow = 0.0
             self.tracked_balance = self.initial_balance = real_bal
             
-            self.mighty = math.floor(round(self.tracked_balance / self.tens, 8)) * self.tens
+            self.mighty = ((math.floor(self.tracked_balance / self.tens)) * self.tens)
             self.next_compound = self.tracked_balance * 1.24
             self.felix = self.orgy = self.orgytwo = self.mighty
         
@@ -355,18 +355,21 @@ class BotEngine(QMainWindow):
 
     def process_tick(self):
 
-        if not self.heartbeat or not self.is_running:
+     if not self.heartbeat or not self.is_running:
             return 
 
-        if time.time() - self.last_activity_time > 45:
+     if time.time() - self.last_activity_time > 45:
             self.last_activity_time = time.time()
             self.lol_poop()
             return
 
-        if self.bet_in_flight:
+     if self.bet_in_flight:
             return
-
-        self.mighty = math.floor(round(self.tracked_balance / self.tens, 8)) * self.tens
+     if (self.tracked_balance!=self.shadow):
+        self.last_activity_time = time.time()
+        dickhead = (self.tracked_balance / self.tens)
+        doesmathfloorworkeven = math.floor(dickhead)
+        self.mighty = (doesmathfloorworkeven * self.tens)
         if (self.tracked_balance<self.orgytwo):
             self.orgytwo = float(self.tracked_balance) 
         if (self.tracked_balance>self.orgy):
@@ -387,9 +390,8 @@ class BotEngine(QMainWindow):
             self.log("winner winner chicken dinner")
             self.heartbeat = False
             return
+        self.shadow = float(self.tracked_balance) 
         self.save_state()
-        
-        sess = self.tracked_balance - self.initial_balance
         self.bet_in_flight = True
         jsfool = f"""
         (function() {{
