@@ -98,7 +98,7 @@ class BotEngine(QMainWindow):
         print(f"[{ts}] {msg}")
 
     def kjool_look(self):
-        try:
+        try: 
            self.browser_view.page().runJavaScript("document.getElementsByClassName('name_button')[0].click()")
         except Exception as e:
            pass
