@@ -370,19 +370,21 @@ class BotEngine(QMainWindow):
         dickhead = (self.tracked_balance / self.tens)
         doesmathfloorworkeven = math.floor(dickhead)
         self.mighty = (doesmathfloorworkeven * self.tens)
+        if ((self.tracked_balance > (self.mighty + self.sevens)) and (self.tracked_balance < (self.mighty + self.eights)) and (self.tracked_balance != self.felix)):
+            self.cat = round((self.cat * 2), 8)
+            self.felix = float(self.tracked_balance) 
         if (self.tracked_balance<self.orgytwo):
             self.orgytwo = float(self.tracked_balance) 
         if (self.tracked_balance>self.orgy):
             self.orgy = float(self.tracked_balance) 
-        if (((self.cat >= (self.tabby*14)) and (self.tracked_balance<=self.orgytwo)) or ((self.cat >= (self.tabby*14)) and (self.tracked_balance>=self.orgy))): 
-            self.cat = self.tabby
-            self.felix = float(self.mighty)
-            self.orgy = float(self.tracked_balance) 
-            self.orgytwo = float(self.tracked_balance) 
-        if ((self.tracked_balance > (self.mighty + self.sevens)) and (self.tracked_balance < (self.mighty + self.eights)) and (self.tracked_balance != self.felix)):
-            self.cat = round(self.cat * 2, 8)
-            self.felix = float(self.tracked_balance)
-        if ((self.tracked_balance>=(self.mighty+(self.cat*9.5))) or (self.tracked_balance<=(self.mighty-(self.cat*6)))):
+        if (self.cat >= (self.tabby*7)): 
+           if ((self.tracked_balance<=self.orgytwo) or (self.tracked_balance>=self.orgy)):
+              if (self.tracked_balance != self.felix):
+                self.cat = self.tabby
+                self.felix = float(self.mighty)
+                self.orgy = float(self.tracked_balance) 
+                self.orgytwo = float(self.tracked_balance) 
+        if ((self.tracked_balance>=(self.felix+(self.cat*9.5))) or (self.tracked_balance<=(self.felix-(self.cat*5.5)))):
             self.log("hacker involved please fuck off hacker")
             self.heartbeat = False
             return
