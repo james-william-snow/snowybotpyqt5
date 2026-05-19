@@ -277,7 +277,7 @@ class BotEngine(QMainWindow):
         if self.state_data:
             self.tabby = self.state_data.get("tabby")
         else:
-            self.tabby = round(balance / 144, 8)
+            self.tabby = round(balance / 14400, 8)
         
         self.tens = self.tabby * 10.0
         self.sevens = self.tabby * 6.9
