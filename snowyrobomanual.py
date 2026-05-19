@@ -91,16 +91,20 @@ class BotEngine(QMainWindow):
         self.log("System initialized. Running in Headless Server Mode...")
         self.browser_view.setUrl(QUrl(URL))
         
-        QTimer.singleShot(10000, self.kjool_look)
+        QTimer.singleShot(35000, self.kjool_look)
 
     def log(self, msg):
         ts = datetime.now().strftime('%H:%M:%S')
         print(f"[{ts}] {msg}")
 
     def kjool_look(self):
+        try 
+           self.browser_view.page().runJavaScript("document.getElementsByClassName('name_button')[0].click()")
+        except Exception as e:
+           pass
         self.log("Analyzing interface state parameters...")
         self.betfired = False
-        QTimer.singleShot(2000, self.inject_login)
+        QTimer.singleShot(5000, self.inject_login)
 
     def inject_login(self):
         if not u or not p: return
