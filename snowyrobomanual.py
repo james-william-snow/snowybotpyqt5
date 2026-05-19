@@ -381,9 +381,12 @@ class BotEngine(QMainWindow):
             self.felix = float(self.tracked_balance)
         if ((self.tracked_balance>=(self.mighty+(self.cat*9.5))) or (self.tracked_balance<=(self.mighty-(self.cat*6)))):
             self.log("hacker involved please fuck off hacker")
-            sys.exit()
+            self.heartbeat = False
             return
-
+        if (self.tracked_balance>=1440):
+            self.log("winner winner chicken dinner")
+            self.heartbeat = False
+            return
         self.save_state()
         
         sess = self.tracked_balance - self.initial_balance
