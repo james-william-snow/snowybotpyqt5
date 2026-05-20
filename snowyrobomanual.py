@@ -5,13 +5,15 @@ import time
 import getpass
 import os
 import logging
+import re
 from datetime import datetime
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                              QWidget, QLabel, QTextEdit)
 from PyQt5.QtCore import QTimer, QUrl, Qt, QObject, pyqtSlot, QFile, QIODevice
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEngineScript, QWebEngineSettings
 from PyQt5.QtWebChannel import QWebChannel
+from bs4 import BeautifulSoup
 
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-audio-output"
 logging.getLogger("PyQt5").setLevel(logging.CRITICAL)
@@ -55,6 +57,7 @@ class BotEngine(QMainWindow):
         self.bolux = 0.0
         self.felix = 0.0
         self.orgy = 0.0
+        self.orgytwo = 0.0
         self.fart = 1
         self.tabby = 0.0
         self.tens = 0.0
@@ -67,6 +70,9 @@ class BotEngine(QMainWindow):
         self.growl = 0.0
         self.uppers = 6.9
         self.downers = 2.9
+        self.balnce = "0.0"
+        self.wons = "0"
+        self.losses = "0"
 
         # Browser Setup
         self.browser_view = QWebEngineView()
@@ -79,7 +85,7 @@ class BotEngine(QMainWindow):
         self.channel.registerObject("pyBridge", self.bridge_object)
         self.browser_view.page().setWebChannel(self.channel)
 
-        self.browser_view.loadFinished.connect(self.deploy_dom_observer)
+        # Removed self.deploy_dom_observer link from here to prevent premature pre-login scanning
 
         self.bet_in_flight = False
         self.last_activity_time = time.time()
@@ -91,11 +97,11 @@ class BotEngine(QMainWindow):
         self.log("System initialized. Running in Headless Server Mode...")
         self.browser_view.setUrl(QUrl(URL))
         
+        # Give the initial site layout 35 seconds to stabilize completely before triggering our login interaction
         QTimer.singleShot(35000, self.kjool_look)
 
     def log(self, msg):
-        ts = datetime.now().strftime('%H:%M:%S')
-        print(f"[{ts}] {msg}")
+        print(f"{msg}")
 
     def kjool_look(self):
         try: 
@@ -132,92 +138,79 @@ class BotEngine(QMainWindow):
         """
         self.browser_view.page().runJavaScript(js)
         self.log("⏳ Running login handshake protocol...")
-        QTimer.singleShot(10000, self.check_ready)
+        
+        # 🚨 THE FIX: Wait 12 seconds after clicking login to ensure the server finishes 
+        # authentication before we ever read our first balance.
+        QTimer.singleShot(12000, self.start_post_login_scrapers)
 
-    def check_ready(self): 
-        self.browser_view.page().runJavaScript("document.getElementById('pct_balance').value", self.verify_login)
+    def start_post_login_scrapers(self):
+        self.log("🔓 Login pipeline finalized. Initializing data trackers...")
+        self.deploy_dom_observer()
 
-    def verify_login(self, val):
-        if not val or str(val) == "null":
-            # If we fail, wait and retry login sequence instead of bricking completely
-            QTimer.singleShot(5000, self.check_ready)
+    def check_ready(self):
+        page = self.browser_view.page()
+        # Direct execution lookup into the DOM memory structure
+        page.runJavaScript(
+            "document.getElementById('pct_balance') ? document.getElementById('pct_balance').value : null", 
+            self.handle_python_value_read
+        )
+
+    def handle_python_value_read(self, val):
+        if val is None or str(val) == "null" or str(val).strip() == "":
+            print("⏳ Balance element value unreadable. Retrying...")
+            QTimer.singleShot(2000, self.check_ready)
             return
 
         try:
-            balance = float(str(val).strip())
+            cleaned_val = "".join(c for c in str(val) if c.isdigit() or c in ".-")
+            balance = float(cleaned_val)
+            
+            self.balnce = str(balance)
+            
+            # If we aren't running yet, trigger initialization verification
+            if not self.is_running:
+                self.verify_login()
+                
+        except Exception as e:
+            print(f"⚠️ Value parser failure: {e}")
+            QTimer.singleShot(2000, self.check_ready)
+
+    def verify_login(self):
+        try:
+            balance = float(self.balnce)
         except Exception as e:
             QTimer.singleShot(5000, self.check_ready)
             return
    
         self.log(f"✅ Active Balance Confirmed: {balance:.8f}")
         self.setup_state(balance)
-        self.toggle_engine()
+        QTimer.singleShot(1500, self.toggle_engine)
 
-    def deploy_dom_observer(self, success=True):
-        # Automatically triggered by the web-frame layout manager anytime a page finishes rendering
-        if not success:
-            return
+    def deploy_wins(self):
+        self.browser_view.page().runJavaScript("document.getElementById('wins').innerText.replaceAll(',', '')", self.winning_wins)
+   
+    def deploy_loss(self):
+        self.browser_view.page().runJavaScript("document.getElementById('losses').innerText.replaceAll(',', '')", self.lossing_loses)
 
-        qrc_file = QFile(":/qtwebchannel/qwebchannel.js")
-        if qrc_file.open(QIODevice.ReadOnly):
-            qwebchannel_source_code = bytes(qrc_file.readAll()).decode("utf-8")
-            qrc_file.close()
-        else:
-            qwebchannel_source_code = ""
+    def deploy_balance(self): 
+        self.check_ready()
 
-        observer_javascript = qwebchannel_source_code + """
-        (function() {
-            if (window.__diceBotInstalled) return;
-            window.__diceBotInstalled = true;
+    def deploy_dom_observer(self):
+        self.deploy_wins()
+        self.deploy_loss()
+        self.deploy_balance()
 
-            new QWebChannel(qt.webChannelTransport, function(channel) {
-                window.pyBridge = channel.objects.pyBridge;
-                let lastBalance = null;
-                let lastWins = null;
-                let lastLosses = null;
-
-                function tick() {
-                    let balanceEl = document.getElementById('pct_balance');
-                    let winsEl = document.getElementById('wins');
-                    let lossesEl = document.getElementById('losses');
-
-                    if (!balanceEl) return;
-
-                    let balance = balanceEl.value;
-                    let wins = winsEl ? winsEl.innerText.replaceAll(',', '') : "0";
-                    let losses = lossesEl ? lossesEl.innerText.replaceAll(',', '') : "0";
-
-                    if (balance !== lastBalance || wins !== lastWins || losses !== lastLosses) {
-                        lastBalance = balance;
-                        lastWins = wins;
-                        lastLosses = losses;
-
-                        window.pyBridge.transmit_data(JSON.stringify({
-                            balance: balance,
-                            wins: wins,
-                            losses: losses
-                        }));
-                    }
-                }
-                setInterval(tick, 100);
-            });
-        })();
-        """
-        self.browser_view.page().runJavaScript(observer_javascript)
-
-    def clean_and_parse_float(self, raw_text):
-        if raw_text is None or str(raw_text) == "null" or str(raw_text).strip() == "":
-            return 0.0
-        try:
-            return float(str(raw_text).strip())
-        except:
-            return 0.0
-
-    def evaluate_financial_sync(self, json_string):
-        scraped_data = json.loads(json_string)
-        current_wins = self.clean_and_parse_float(scraped_data.get('wins'))
-        current_losses = self.clean_and_parse_float(scraped_data.get('losses'))
-        current_balance = self.clean_and_parse_float(scraped_data.get('balance'))
+    def winning_wins(self, wins):
+        self.wons = wins if wins else "0"
+   
+    def lossing_loses(self, losses):
+        self.losses = losses if losses else "0"
+   
+    def evaluate_financial_sync(self):
+        self.deploy_dom_observer()
+        current_wins = float(self.wons)
+        current_losses = float(self.losses)
+        current_balance = float(self.balnce)
 
         if self.prev_balance is None:
             self.prev_balance = current_balance
@@ -237,26 +230,25 @@ class BotEngine(QMainWindow):
             self.tracked_balance = round(self.tracked_balance + delta, 8)
             self.last_balance = current_balance
             
-            # FIXED: Only run anomaly protection if the engine loop is running and active
             if self.is_running and (self.prev_wins > 0 or self.prev_losses > 0):
                 if current_losses > self.prev_losses and delta > 0:
-                    self.log("🚨 CRITICAL ANOMALY: Balance went UP on match REDS.")
+                    print("🚨 CRITICAL ANOMALY: Balance went UP on match REDS.")
                     sys.exit()
                 elif current_wins > self.prev_wins and delta < 0:
-                    self.log("🚨 CRITICAL ANOMALY: Balance went DOWN on match GREENS.")
+                    print("🚨 CRITICAL ANOMALY: Balance went DOWN on match GREENS.")
                     sys.exit()
             sess = self.tracked_balance - self.initial_balance
             if current_losses > self.prev_losses:
-                self.log(f"⚡ Loss Confirmed: Balance at {current_balance:.8f} | D: {delta:+.8f} | profit: {sess:+.8f}")
+                print(f"⚡Loss Confirmed: Balance decreased to {current_balance:.8f} | D: {delta:+.8f} | profit: {sess:+.8f}")
             elif current_wins > self.prev_wins:
-                self.log(f"⚡ Win Confirmed: Balance increased to {current_balance:.8f} | D: {delta:+.8f} | profit: {sess:+.8f}")
+                print(f"⚡ Win Confirmed: Balance increased to {current_balance:.8f} | D: {delta:+.8f} | profit: {sess:+.8f}")
             
             self.bet_in_flight = False
             self.last_activity_time = time.time()
 
-        self.prev_wins = current_wins
-        self.prev_losses = current_losses
-        self.prev_balance = current_balance
+            self.prev_wins = current_wins
+            self.prev_losses = current_losses
+            self.prev_balance = current_balance
 
     def save_state(self):
         try:
@@ -273,8 +265,9 @@ class BotEngine(QMainWindow):
 
     def calculate_units(self, balance):
         self.state_data = self.load_state_file()
-        if balance == 0: return
-        if self.state_data:
+        if balance == 0: 
+            self.tabby = 0.00000001
+        elif self.state_data:
             self.tabby = self.state_data.get("tabby")
         else:
             self.tabby = round(balance / 14400, 8)
@@ -299,25 +292,26 @@ class BotEngine(QMainWindow):
             self.tracked_balance = round(self.state_data.get("tracked_balance", real_bal) + drift, 8)
             self.next_compound = self.state_data.get("next_compound", self.tracked_balance * 1.24)
             self.shadow = 0.0
-            
-            self.mighty = ((math.floor(self.tracked_balance / self.tens)) * self.tens)
-            self.felix = self.state_data.get("felix", self.mighty)
-            self.orgy = self.state_data.get("orgy", self.mighty)
+            self.mighty = round(((math.floor(self.tracked_balance / self.tens))* self.tens), 8)
+            self.felix = self.state_data.get("felix", float(self.mighty))
+            self.orgy = self.state_data.get("orgy", float(self.mighty))
+            self.orgytwo = self.state_data.get("orgy", float(self.mighty))
             self.log(f"⚖️ Deviation Corrected: {drift:.8f}")
         else:
             self.log("🆕 Zero-baseline initialization execution...")
             self.cat = self.tabby
             self.fart = 1
             self.shadow = 0.0
-            self.tracked_balance = self.initial_balance = real_bal
-            
-            self.mighty = ((math.floor(self.tracked_balance / self.tens)) * self.tens)
+            self.tracked_balance = real_bal
+            self.initial_balance = real_bal
+            self.mighty = round(((math.floor(self.tracked_balance / self.tens))* self.tens), 8)
             self.next_compound = self.tracked_balance * 1.24
-            self.felix = self.orgy = self.orgytwo = self.mighty
+            self.felix = float(self.mighty) 
+            self.orgy = float(self.mighty) 
+            self.orgytwo = float(self.mighty)
         
         self.last_balance = real_bal
-        
-  
+
     def load_state_file(self):
         try:
             with open(STATE_FILE, "r") as f:
@@ -350,7 +344,6 @@ class BotEngine(QMainWindow):
         self.prev_wins = None
         self.prev_losses = None
         
-        # Reloading updates DOM and automatically calls deploy_dom_observer because of loadFinished hook
         self.browser_view.reload()
         QTimer.singleShot(15000, self.devils_pooped)
     
@@ -358,73 +351,60 @@ class BotEngine(QMainWindow):
         self.kjool_look()
 
     def process_tick(self):
-
-     if not self.heartbeat or not self.is_running:
-            return 
-
-     if time.time() - self.last_activity_time > 45:
+        self.evaluate_financial_sync()
+        if time.time() - self.last_activity_time > 45:
             self.last_activity_time = time.time()
             self.lol_poop()
             return
-
-     if self.bet_in_flight:
-            return
-     if (self.tracked_balance!=self.shadow):
-        self.last_activity_time = time.time()
-        dickhead = (self.tracked_balance / self.tens)
-        doesmathfloorworkeven = math.floor(dickhead)
-        self.mighty = (doesmathfloorworkeven * self.tens)
-        if ((self.tracked_balance > (self.mighty + self.sevens)) and (self.tracked_balance < (self.mighty + self.eights)) and (self.tracked_balance != self.felix)):
-            self.cat = round((self.cat * 2), 8)
-            self.felix = float(self.tracked_balance) 
-        if (self.tracked_balance<self.orgytwo):
-            self.orgytwo = float(self.tracked_balance) 
-        if (self.tracked_balance>self.orgy):
-            self.orgy = float(self.tracked_balance) 
-        if (self.cat >= (self.tabby*7)): 
-           if ((self.tracked_balance<=self.orgytwo) or (self.tracked_balance>=self.orgy)):
-              if (self.tracked_balance != self.felix):
-                self.cat = self.tabby
-                self.felix = float(self.mighty)
-                self.orgy = float(self.tracked_balance) 
+        if self.heartbeat and not self.bet_in_flight:
+            self.last_activity_time = time.time()
+            self.mighty = round(((math.floor(self.tracked_balance / self.tens))* self.tens), 8)
+            if ((self.tracked_balance > (self.mighty + self.sevens)) and (self.tracked_balance < (self.mighty + self.eights)) and (self.tracked_balance != self.felix)):
+                self.cat = round((self.cat * 2), 8)
+                self.felix = float(self.tracked_balance) 
+            if (self.tracked_balance<self.orgytwo):
                 self.orgytwo = float(self.tracked_balance) 
-        if ((self.tracked_balance>=(self.felix+(self.cat*9.5))) or (self.tracked_balance<=(self.felix-(self.cat*5.5)))):
-            self.log("hacker involved please fuck off hacker")
-            self.heartbeat = False
-            return
-        if (self.tracked_balance>=1440):
-            self.log("winner winner chicken dinner")
-            self.heartbeat = False
-            return
-        self.shadow = float(self.tracked_balance) 
-        self.save_state()
-        self.bet_in_flight = True
-        jsfool = f"""
-        (function() {{
-            var b_min = document.getElementById('b_min');
-            var pct_chance = document.getElementById('pct_chance');
-            var pct_bet = document.getElementById('pct_bet');
-            var a_lo = document.getElementById('a_lo');
-            
-            if(b_min && pct_chance && pct_bet && a_lo) {{
-                b_min.click();
-                pct_chance.value = '49.5';
-                pct_bet.value = '{self.cat:.8f}';
-                a_lo.click();
-            }}
-        }})();
-        """
-        self.browser_view.page().runJavaScript(jsfool) 
-
-
-
+            if (self.tracked_balance>self.orgy):
+                self.orgy = float(self.tracked_balance) 
+            if (self.cat >= (self.tabby*7)): 
+               if ((self.tracked_balance<=self.orgytwo) or (self.tracked_balance>=self.orgy)):
+                  if (self.tracked_balance != self.felix):
+                    self.cat = self.tabby
+                    self.felix = float(self.mighty)
+                    self.orgy = float(self.tracked_balance) 
+                    self.orgytwo = float(self.tracked_balance) 
+            if ((self.tracked_balance>=(self.felix+(self.cat*10))) or (self.tracked_balance<=(self.felix-(self.cat*10)))):
+                self.log("hacker involved please fuck off hacker")
+                self.heartbeat = False
+                self.engine_timer.stop()
+                return
+            if (self.tracked_balance>=1440):
+                self.log("winner winner chicken dinner")
+                self.heartbeat = False
+                self.engine_timer.stop()
+                return
+            self.shadow = float(self.tracked_balance) 
+            self.save_state()
+            self.bet_in_flight = True
+            jsfool = f"""
+            (function() {{
+                var b_min = document.getElementById('b_min');
+                var pct_chance = document.getElementById('pct_chance');
+                var pct_bet = document.getElementById('pct_bet');
+                var a_lo = document.getElementById('a_lo');
+                
+                if(b_min && pct_chance && pct_bet && a_lo) {{
+                    b_min.click();
+                    pct_chance.value = '49.5';
+                    pct_bet.value = '{self.cat:.8f}';
+                    a_lo.click();
+                }}
+            }})();
+            """
+            self.browser_view.page().runJavaScript(jsfool) 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     bot = BotEngine()
-    
-    # We call show to initialize the chromium frame buffers, 
-    # but the window flags above keep it entirely invisible to the eyes and taskbar.
     bot.hide()  
-    
     sys.exit(app.exec_())
