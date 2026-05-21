@@ -319,7 +319,7 @@ class BotEngine(QMainWindow):
         elif self.state_data:
             self.basebet = self.state_data.get("basebet")
         else:
-            self.basebet = round(balance / 14400, 8)
+            self.basebet = round(balance / 3200, 8)
         
         self.tens = self.basebet * 10.0
         self.sevens = self.basebet * 6.9
