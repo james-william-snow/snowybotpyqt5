@@ -4,11 +4,11 @@ for debian or ubuntu
 
 sudo apt update
 
-sudo apt install python3-pyqt5 python3-pyqt5.qtwebengine python3-pyqt5.qtchart
+sudo apt install python3-pyqt5 python3-pyqt5.qtwebengine python3-pyqt5.qtchart python3-bs4
 
 or for windows 7/8.1/10/11
 
-pip install pyqt5 pyqt5-qtwebengine pyqtchart
+pip install pyqt5 pyqt5-qtwebengine pyqtchart bs4
 
 and to start it 
 
