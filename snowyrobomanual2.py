@@ -233,11 +233,11 @@ class BotEngine(QMainWindow):
 
     def deploy_wins(self):
         if self.is_reconnecting: return
-        self.browser_view.page().runJavaScript("document.getElementById('wins').innerText.replaceAll(',', '')", self.winning_wins)
+        self.browser_view.page().runJavaScript("document.getElementById('wins').innerText.replace(/,/g, '')", self.winning_wins)
    
     def deploy_loss(self):
         if self.is_reconnecting: return
-        self.browser_view.page().runJavaScript("document.getElementById('losses').innerText.replaceAll(',', '')", self.lossing_loses)
+        self.browser_view.page().runJavaScript("document.getElementById('losses').innerText.replace(/,/g, '')", self.lossing_loses)
 
     def deploy_balance(self): 
         if self.is_reconnecting: return
