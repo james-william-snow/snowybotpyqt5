@@ -443,7 +443,7 @@ class BotEngine(QMainWindow):
             }})();
             """
             self.browser_view.page().runJavaScript(jsfool)
-        QTimer.singleShot(1, self.process_tick) 
+        QTimer.singleShot(150, self.process_tick) 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
